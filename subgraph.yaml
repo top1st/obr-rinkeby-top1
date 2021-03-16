@@ -6,8 +6,9 @@ dataSources:
     name: NFTOBR
     network: rinkeby
     source:
-      address: "0x213BcFF21281F6966c1585BC9220B797C5AA6D94"
+      address: "0x43AB6f865E92A8014A214e5b70AB22FD7506e901"
       abi: NFTOBR
+      startBlock: 8245046
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.4
