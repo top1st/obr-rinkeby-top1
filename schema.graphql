@@ -1,6 +1,50 @@
-type ExampleEntity @entity {
+type Token @entity {
+  id: ID!
+  supply: BigInt!
+  minter: Bytes! # address
+  meta: String # uri
+  balances: [TokenBalance!]! @derivedFrom(field: "token")
+}
+
+type TokenBalance @entity {
+  id: ID! # `${tokenId}-${address}`
+  amount: BigInt!
+  token: Token!
+  account: Account!
+}
+
+type Account @entity {
+  id: ID! # address
+  balances: [TokenBalance!]! @derivedFrom(field: "account")
+}
+
+type Admin @entity {
+  id: ID! # always 1
+  owner: Account!
+  signers: [Account!]!
+}
+
+
+type ApprovEntity @entity {
   id: ID!
   count: BigInt!
   _owner: Bytes! # address
   _operator: Bytes! # address
+}
+
+type Transaction @entity {
+  id: ID! # txn hash
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  mints: [Mint!]!
+}
+
+type Mint @entity {
+  # transaction hash + "-" + index in mints Transaction array
+  id: ID!
+  transaction: Transaction! @derivedFrom(field: "mints")
+  timestamp: BigInt!
+  to: Bytes! # address
+  token: Token!
+  amount: BigDecimal!
 }

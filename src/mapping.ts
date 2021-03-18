@@ -1,4 +1,12 @@
-import { BigInt } from "@graphprotocol/graph-ts"
+import {
+  Address,
+  BigInt,
+  Bytes,
+  ipfs,
+  json,
+  JSONValue,
+  Value,
+} from "@graphprotocol/graph-ts";
 import {
   NFTOBR,
   ApprovalForAll,
@@ -8,33 +16,46 @@ import {
   SignerRemoved,
   TransferBatch,
   TransferSingle,
-  URI
-} from "../generated/NFTOBR/NFTOBR"
-import { ExampleEntity } from "../generated/schema"
+  URI,
+} from "../generated/NFTOBR/NFTOBR";
+import {
+  Account,
+  Admin,
+  ApprovEntity,
+  Token,
+  TokenBalance,
+  Transaction,
+} from "../generated/schema";
+import {
+  ADDRESS_ZERO,
+  getAdmin,
+  loadOrCreateAccount,
+  loadOrCreateTokenBalance,
+} from "./helpers";
 
 export function handleApprovalForAll(event: ApprovalForAll): void {
   // Entities can be loaded from the store using a string ID; this ID
   // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from.toHex())
+  let entity = ApprovEntity.load(event.transaction.from.toHex());
 
   // Entities only exist after they have been saved to the store;
   // `null` checks allow to create entities on demand
   if (entity == null) {
-    entity = new ExampleEntity(event.transaction.from.toHex())
+    entity = new ApprovEntity(event.transaction.from.toHex());
 
     // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
+    entity.count = BigInt.fromI32(0);
   }
 
   // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
+  entity.count = entity.count + BigInt.fromI32(1);
 
   // Entity fields can be set based on event parameters
-  entity._owner = event.params._owner
-  entity._operator = event.params._operator
+  entity._owner = event.params._owner;
+  entity._operator = event.params._operator;
 
   // Entities can be written to the store with `.save()`
-  entity.save()
+  entity.save();
 
   // Note: If a handler doesn't require existing field values, it is faster
   // _not_ to load the entity from the store. Instead, create it fresh with
@@ -71,16 +92,83 @@ export function handleApprovalForAll(event: ApprovalForAll): void {
   // - contract.uri(...)
 }
 
-export function handleOwnershipTransferred(event: OwnershipTransferred): void {}
+export function handleOwnershipTransferred(event: OwnershipTransferred): void {
+  let admin = getAdmin();
+  let newOwnerAddressStr = event.params.newOwner.toHex();
+  let oldOwnerAddressStr = event.params.newOwner.toHex();
+  admin.owner = newOwnerAddressStr;
+  let oldAccount = loadOrCreateAccount(oldOwnerAddressStr);
+  oldAccount.save();
+  let newAccount = loadOrCreateAccount(newOwnerAddressStr);
+  newAccount.save();
+  admin.save();
+}
 
 export function handleSecondarySaleFees(event: SecondarySaleFees): void {}
 
-export function handleSignerAdded(event: SignerAdded): void {}
+export function handleSignerAdded(event: SignerAdded): void {
+  let admin = getAdmin();
+  let signers = admin.signers;
+  signers.push(event.params.account.toHex());
+  admin.signers = signers;
+  admin.save();
+}
 
-export function handleSignerRemoved(event: SignerRemoved): void {}
+export function handleSignerRemoved(event: SignerRemoved): void {
+  let admin = getAdmin();
+  let signers = admin.signers;
+  signers = signers.filter((signer) => signer != event.params.account.toHex());
+  admin.signers = signers;
+  admin.save();
+}
 
 export function handleTransferBatch(event: TransferBatch): void {}
 
-export function handleTransferSingle(event: TransferSingle): void {}
+export function handleTransferSingle(event: TransferSingle): void {
+  let txHash = event.transaction.hash.toHex();
+  let entity = Transaction.load(txHash);
 
-export function handleURI(event: URI): void {}
+  if (entity == null) {
+    entity = new Transaction(txHash);
+  }
+
+  entity.blockNumber = event.block.number;
+  entity.timestamp = event.block.timestamp;
+
+  let tokenId = event.params._id.toHex();
+  let amount = event.params._value;
+  let from = event.params._from;
+  let to = event.params._to;
+  let minter = event.params._operator
+  let token = Token.load(tokenId);
+
+  if (token == null) {
+    token = new Token(tokenId);
+  }
+
+  if (event.params._from.toHex() == ADDRESS_ZERO) {
+    // Mint Token
+    token.supply = amount;
+    token.minter = minter;
+    token.save();
+  } else {
+    let tokenBalanceFrom = loadOrCreateTokenBalance(tokenId, from.toHex());
+    tokenBalanceFrom.amount = tokenBalanceFrom.amount.minus(amount);
+    tokenBalanceFrom.save();
+  }
+
+  let tokenBalanceTo = loadOrCreateTokenBalance(tokenId, to.toHex());
+  tokenBalanceTo.amount = tokenBalanceTo.amount.plus(amount);
+  tokenBalanceTo.save();
+}
+
+export function handleURI(event: URI): void {
+  let tokenId = event.params._id.toHex();
+  let uri = event.params._value;
+  let token = Token.load(tokenId);
+  if (token == null) {
+    token = new Token(tokenId);
+  }
+  token.meta = uri;
+  token.save();
+}
