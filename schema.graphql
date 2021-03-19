@@ -16,6 +16,9 @@ type TokenBalance @entity {
 type Account @entity {
   id: ID! # address
   balances: [TokenBalance!]! @derivedFrom(field: "account")
+  sendTransactions: [Transfer!]! @derivedFrom(field: "from")
+  receiveTransactions: [Transfer!]! @derivedFrom(field: "to")
+  operateTransactions: [Transfer!]! @derivedFrom(field: "operator")
 }
 
 type Admin @entity {
@@ -32,19 +35,19 @@ type ApprovEntity @entity {
   _operator: Bytes! # address
 }
 
+type Transfer @entity {
+  id: ID! # txn hash - log index
+  operator: Account!
+  from: Account!
+  to: Account!
+  amount: BigInt!
+  transaction: Transaction!
+}
+
 type Transaction @entity {
   id: ID! # txn hash
   blockNumber: BigInt!
   timestamp: BigInt!
-  mints: [Mint!]!
+  transfers: [Transfer!]! @derivedFrom(field: "transaction")
 }
 
-type Mint @entity {
-  # transaction hash + "-" + index in mints Transaction array
-  id: ID!
-  transaction: Transaction! @derivedFrom(field: "mints")
-  timestamp: BigInt!
-  to: Bytes! # address
-  token: Token!
-  amount: BigDecimal!
-}

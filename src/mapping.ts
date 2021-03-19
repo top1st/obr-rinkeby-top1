@@ -31,6 +31,8 @@ import {
   getAdmin,
   loadOrCreateAccount,
   loadOrCreateTokenBalance,
+  loadOrCreateTransaction,
+  loadOrCreateTransfer,
 } from "./helpers";
 
 export function handleApprovalForAll(event: ApprovalForAll): void {
@@ -48,7 +50,7 @@ export function handleApprovalForAll(event: ApprovalForAll): void {
   }
 
   // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1);
+  entity.count = entity.count.plus(BigInt.fromI32(1));
 
   // Entity fields can be set based on event parameters
   entity._owner = event.params._owner;
@@ -95,7 +97,7 @@ export function handleApprovalForAll(event: ApprovalForAll): void {
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   let admin = getAdmin();
   let newOwnerAddressStr = event.params.newOwner.toHex();
-  let oldOwnerAddressStr = event.params.newOwner.toHex();
+  let oldOwnerAddressStr = event.params.previousOwner.toHex();
   admin.owner = newOwnerAddressStr;
   let oldAccount = loadOrCreateAccount(oldOwnerAddressStr);
   oldAccount.save();
@@ -109,7 +111,8 @@ export function handleSecondarySaleFees(event: SecondarySaleFees): void {}
 export function handleSignerAdded(event: SignerAdded): void {
   let admin = getAdmin();
   let signers = admin.signers;
-  signers.push(event.params.account.toHex());
+  let signer = loadOrCreateAccount(event.params.account.toHex())
+  signers.push(signer.id);
   admin.signers = signers;
   admin.save();
 }
@@ -125,21 +128,13 @@ export function handleSignerRemoved(event: SignerRemoved): void {
 export function handleTransferBatch(event: TransferBatch): void {}
 
 export function handleTransferSingle(event: TransferSingle): void {
-  let txHash = event.transaction.hash.toHex();
-  let entity = Transaction.load(txHash);
-
-  if (entity == null) {
-    entity = new Transaction(txHash);
-  }
-
-  entity.blockNumber = event.block.number;
-  entity.timestamp = event.block.timestamp;
+  loadOrCreateTransaction(event)
 
   let tokenId = event.params._id.toHex();
   let amount = event.params._value;
   let from = event.params._from;
   let to = event.params._to;
-  let minter = event.params._operator
+  let operator = event.params._operator;
   let token = Token.load(tokenId);
 
   if (token == null) {
@@ -149,7 +144,7 @@ export function handleTransferSingle(event: TransferSingle): void {
   if (event.params._from.toHex() == ADDRESS_ZERO) {
     // Mint Token
     token.supply = amount;
-    token.minter = minter;
+    token.minter = operator;
     token.save();
   } else {
     let tokenBalanceFrom = loadOrCreateTokenBalance(tokenId, from.toHex());
@@ -160,6 +155,7 @@ export function handleTransferSingle(event: TransferSingle): void {
   let tokenBalanceTo = loadOrCreateTokenBalance(tokenId, to.toHex());
   tokenBalanceTo.amount = tokenBalanceTo.amount.plus(amount);
   tokenBalanceTo.save();
+  loadOrCreateTransfer(event);
 }
 
 export function handleURI(event: URI): void {
@@ -168,6 +164,8 @@ export function handleURI(event: URI): void {
   let token = Token.load(tokenId);
   if (token == null) {
     token = new Token(tokenId);
+    token.supply = BigInt.fromI32(1);
+    token.minter = Address.fromString(ADDRESS_ZERO)
   }
   token.meta = uri;
   token.save();
