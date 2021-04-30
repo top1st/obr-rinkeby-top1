@@ -145,6 +145,7 @@ export function handleTransferSingle(event: TransferSingle): void {
     // Mint Token
     token.supply = amount;
     token.minter = operator;
+    token.blockNumber = event.block.number
     token.save();
   } else {
     let tokenBalanceFrom = loadOrCreateTokenBalance(tokenId, from.toHex());
@@ -166,6 +167,7 @@ export function handleURI(event: URI): void {
     token = new Token(tokenId);
     token.supply = BigInt.fromI32(1);
     token.minter = Address.fromString(ADDRESS_ZERO)
+    token.blockNumber = event.block.number
   }
   token.meta = uri;
   token.save();

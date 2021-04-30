@@ -4,6 +4,7 @@ type Token @entity {
   minter: Bytes! # address
   meta: String # uri
   balances: [TokenBalance!]! @derivedFrom(field: "token")
+  blockNumber: BigInt!
 }
 
 type TokenBalance @entity {

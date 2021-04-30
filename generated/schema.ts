@@ -85,6 +85,15 @@ export class Token extends Entity {
   set balances(value: Array<string>) {
     this.set("balances", Value.fromStringArray(value));
   }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
 }
 
 export class TokenBalance extends Entity {
